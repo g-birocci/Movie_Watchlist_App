@@ -1,6 +1,6 @@
 // frontend/src/hooks/useMovies.js
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { carregarFilmesAPI } from '../services/api'; 
 
 export const useMovies = (filterParams = {}) => { 
@@ -8,19 +8,13 @@ export const useMovies = (filterParams = {}) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // ✅ SOLUÇÃO: Serializa filterParams para criar uma chave estável
-  const filterKey = useMemo(() => {
-    return JSON.stringify(filterParams);
-  }, [JSON.stringify(filterParams)]);
-
-  // A função de busca agora depende da chave serializada
-  const fetchMovies = useCallback(async () => {
+  // Função que busca filmes (pode receber novos filtros opcionalmente)
+  const fetchMovies = async (customFilters) => {
     setLoading(true);
     setError(null);
     try {
-      // Deserializa a chave de volta para objeto
-      const params = JSON.parse(filterKey);
-      const data = await carregarFilmesAPI(params); 
+      const filters = customFilters || filterParams;
+      const data = await carregarFilmesAPI(filters); 
       
       setMovies(Array.isArray(data) ? data : []); 
     } catch (err) {
@@ -30,18 +24,19 @@ export const useMovies = (filterParams = {}) => {
     } finally {
       setLoading(false);
     }
-  }, [filterKey]); // ✅ Agora depende apenas de filterKey
+  };
 
-  // Busca apenas quando fetchMovies mudar
+  // Busca inicial apenas uma vez na montagem
   useEffect(() => {
     fetchMovies();
-  }, [fetchMovies]); 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // ✅ Intencionalmente vazio - só executa na montagem
   
   return { 
     movies, 
     isLoading: loading,
     error, 
-    refetchMovies: fetchMovies,
+    refetchMovies: fetchMovies, // Pode passar novos filtros: refetchMovies({ watched: true })
     setMovies 
   };
 };

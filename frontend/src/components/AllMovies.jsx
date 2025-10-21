@@ -1,5 +1,3 @@
-// frontend/src/components/AllMovies.jsx
-
 import React, { useState, useMemo } from "react";
 import { useMovies } from "../hooks/useMovies";
 import { useDeleteMovie } from "../hooks/useDeleteMovie";

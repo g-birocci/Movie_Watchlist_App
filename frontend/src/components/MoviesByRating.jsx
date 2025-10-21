@@ -1,5 +1,3 @@
-// frontend/src/components/MoviesByRating.jsx
-
 import React, { useState, useMemo, useEffect } from "react";
 import { useMovies } from "../hooks/useMovies";
 import { useDeleteMovie } from "../hooks/useDeleteMovie";

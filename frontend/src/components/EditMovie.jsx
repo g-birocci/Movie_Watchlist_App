@@ -1,5 +1,3 @@
-// frontend/src/components/EditMovie.jsx
-
 import React, { useState } from 'react';
 import { useEditMovie } from '../hooks/useEditMovie';
 

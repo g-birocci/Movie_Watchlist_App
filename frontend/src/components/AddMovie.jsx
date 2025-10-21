@@ -1,5 +1,3 @@
-// frontend/src/components/AddMovie.jsx
-
 import React, { useState, useEffect } from 'react';
 import { useAddMovie } from '../hooks/useAddMovie';
 
