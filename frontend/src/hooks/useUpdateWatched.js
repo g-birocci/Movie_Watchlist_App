@@ -1,45 +1,64 @@
 // frontend/src/hooks/useUpdateWatched.js
 
 import { useState } from 'react';
-// Importe a função que você deve criar em services/api.js
-import { alternarWatchedAPI } from '../services/api'; 
+import { alterarStatusWatchedAPI } from '../services/api';
 
-export const useUpdateWatched = (setMovies) => {
-    const [isUpdating, setIsUpdating] = useState(false);
-    const [updateError, setUpdateError] = useState(null);
+/**
+ * Hook para atualizar o status "watched" de um filme
+ * @param {Function} setMovies - Função para atualizar o estado de filmes
+ * @param {Object} options - Opções de configuração
+ * @param {boolean} options.removeOnToggle - Se true, remove o filme da lista ao alternar
+ * @returns {Object} - Retorna toggleWatchedStatus, isUpdating e updateError
+ */
+export const useUpdateWatched = (setMovies, options = {}) => {
+  const { removeOnToggle = false } = options;
+  
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [updateError, setUpdateError] = useState(null);
 
-    // Alterna o status 'watched' de um filme
-    const toggleWatchedStatus = async (movieId, currentStatus) => {
-        setIsUpdating(true);
-        setUpdateError(null);
-        
-        const newStatus = !currentStatus;
+  const toggleWatchedStatus = async (movieId, currentWatchedStatus) => {
+    const newWatchedStatus = !currentWatchedStatus;
+    let oldMovies;
 
-        try {
-            // 1. Chama a API para persistir a mudança no servidor
-            await alternarWatchedAPI(movieId, newStatus); 
+    setIsUpdating(true);
+    setUpdateError(null);
 
-            // 2. Otimismo no Frontend: Atualiza a lista de filmes localmente
-            setMovies(prevMovies => 
-                prevMovies.map(movie => 
-                    movie._id === movieId 
-                        ? { ...movie, watched: newStatus } // Atualiza apenas o 'watched'
-                        : movie
-                )
-            );
+    // ⚡️ ATUALIZAÇÃO OTIMISTA
+    setMovies((currentMovies) => {
+      oldMovies = currentMovies;
 
-        } catch (err) {
-            const errorMessage = err.message || 'Falha ao atualizar o status do filme.';
-            setUpdateError(errorMessage);
-            console.error('Erro de atualização:', err);
-        } finally {
-            setIsUpdating(false);
-        }
-    };
+      if (removeOnToggle) {
+        // 🗑️ MODO: Remove da lista (para tela "Watched Movies")
+        return currentMovies.filter((movie) => movie._id !== movieId);
+      } else {
+        // ✏️ MODO: Atualiza o status sem remover (para tela "All Movies")
+        return currentMovies.map((movie) =>
+          movie._id === movieId
+            ? { ...movie, watched: newWatchedStatus }
+            : movie
+        );
+      }
+    });
 
-    return { 
-        isUpdating, 
-        updateError, 
-        toggleWatchedStatus 
-    };
+    // 📤 Tenta fazer a chamada API
+    try {
+      await alterarStatusWatchedAPI(movieId, newWatchedStatus);
+      // Sucesso: A UI já está atualizada
+    } catch (err) {
+      // ❌ FALHA: Reverte o estado (Rollback)
+      const errorMsg = err.message || 'Falha ao atualizar status do filme';
+      console.error('Erro ao atualizar watched:', errorMsg, err);
+      setUpdateError(errorMsg);
+      setMovies(oldMovies);
+      alert('Houve um erro ao salvar a alteração. Tente novamente.');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  return { 
+    toggleWatchedStatus,
+    isUpdating,
+    updateError
+  };
 };

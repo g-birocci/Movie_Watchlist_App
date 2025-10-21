@@ -3,7 +3,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import mongoose from 'mongoose';
-import movieRoutes from './routes/movies.js'; // ← importe as rotas
+import movieRoutes from './routes/movies.js';
 
 dotenv.config();
 const app = express();
@@ -14,12 +14,24 @@ mongoose
   .then(() => console.log('Conectado ao MongoDB!'))
   .catch((err) => console.error('Erro ao conectar ao MongoDB:', err));
 
-app.use(express.json());
-app.use(cors());
+// CORS liberado para desenvolvimento
+if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) {
+  app.use(cors()); // Permite TODAS as origens em desenvolvimento
+  console.log('⚠️  CORS: Todas as origens permitidas (desenvolvimento)');
+} else {
+  // Em produção, use configuração específica
+  app.use(cors({
+    origin: process.env.FRONTEND_URL,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    credentials: true,
+  }));
+  console.log(`✅ CORS: Apenas ${process.env.FRONTEND_URL} permitido (produção)`);
+}
 
-// Registre as rotas
-app.use('/api/movies', movieRoutes); // ← todas as rotas de filme começam com /api/movies
+app.use(express.json());
+
+app.use('/api/movies', movieRoutes); 
 
 app.listen(PORT, () => {
-  console.log(`Servidor a correr corretamente na porta ${PORT}!`);
+  console.log(`🚀 Servidor rodando na porta ${PORT}!`);
 });

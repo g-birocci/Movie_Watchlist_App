@@ -91,6 +91,7 @@ export default function Home() {
                 {/* Cabeçalho/descrição abaixo das abas */}
                 <header className="text-center mb-4 mt-3">
                     <p className="text-muted mt-1">Filmes que vi, quero ver e minhas avaliações</p>
+                    
                 </header>
 
                 <main>

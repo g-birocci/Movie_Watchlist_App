@@ -1,40 +1,49 @@
 // frontend/src/hooks/useMovies.js
 
-import { useState, useEffect, useCallback } from 'react';
-import { carregarFilmesAPI } from '../services/api'; // Ajuste o caminho se necessário
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { carregarFilmesAPI } from '../services/api'; 
 
-export const useMovies = () => {
+export const useMovies = (filterParams = {}) => { 
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // A função de busca é memorizada
+  // SOLUÇÃO 1: Estabilizar filterParams com useMemo
+  // Converte o objeto em uma string estável para comparação
+  const stableFilterParams = useMemo(
+    () => JSON.stringify(filterParams),
+    [JSON.stringify(filterParams)]
+  );
+
+  // A função de busca agora depende da string estável
   const fetchMovies = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await carregarFilmesAPI();
-      // Garante que é um array antes de atualizar o estado
+      // Reconverte a string de volta para objeto
+      const params = JSON.parse(stableFilterParams);
+      const data = await carregarFilmesAPI(params); 
+      
       setMovies(Array.isArray(data) ? data : []); 
     } catch (err) {
       setError(err.message || 'Falha ao carregar os filmes.');
       setMovies([]);
+      console.error('Erro ao buscar filmes:', err);
     } finally {
       setLoading(false);
     }
-  }, []); // Sem dependências para que não mude
+  }, [stableFilterParams]); // Agora depende de uma string estável
 
-  // Busca inicial ao montar o componente
+  // Busca apenas quando fetchMovies mudar (não em todo render)
   useEffect(() => {
     fetchMovies();
   }, [fetchMovies]); 
   
-  // Retorna o estado e a função para recarregar ou atualizar a lista diretamente
   return { 
     movies, 
-    loading, 
+    isLoading: loading,
     error, 
-    refetch: fetchMovies, // Função para recarregar a lista (chamar a API novamente)
-    setMovies // Permite que outros hooks atualizem a lista localmente
+    refetchMovies: fetchMovies,
+    setMovies 
   };
 };
