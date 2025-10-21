@@ -1,168 +1,109 @@
 // frontend/src/components/AddMovie.jsx
-import { useState } from 'react';
-import { adicionarFilmeAPI } from '../services/api';
 
-export default function AddMovie({ onMovieAdded, onClose }) {
-  const [title, setTitle] = useState('');
-  const [year, setYear] = useState('');
-  const [genre, setGenre] = useState('');
-  const [watched, setWatched] = useState(false);
-  const [rating, setRating] = useState('');
+import React, { useState, useEffect } from 'react';
+import { useAddMovie } from '../hooks/useAddMovie';
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(false);
+// Recebe setMovies (ou onMovieAdded) e handleClose
+export default function AddMovie({ onMovieAdded, handleClose }) { 
+    
+    const [formData, setFormData] = useState({
+        title: '',
+        year: '',
+        genre: '',
+        rating: '',
+        watched: false,
+    });
+    
+    // Passando setMovies (onMovieAdded) e handleClose
+    const { isLoading, addError, success, addMovie, resetSuccess } = useAddMovie(onMovieAdded, handleClose); 
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setSuccess(false);
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? checked : value,
+        }));
+    };
 
-    // Validação simples
-    if (!title || !year || !genre) {
-      setError('Título, ano e gênero são obrigatórios.');
-      setLoading(false);
-      return;
-    }
+    useEffect(() => {
+        // Limpar o formulário no sucesso (o handleClose é chamado no hook)
+        if (success) {
+            setFormData({
+                title: '',
+                year: '',
+                genre: '',
+                rating: '',
+                watched: false,
+            });
+            alert('Filme adicionado com sucesso!'); 
+            resetSuccess(); 
+        }
+    }, [success, resetSuccess]);
 
-    try {
-      await adicionarFilmeAPI({
-        title,
-        year: Number(year),
-        genre,
-        watched,
-        rating: rating ? Number(rating) : undefined,
-      });
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        
+        const movieData = { 
+            title: formData.title,
+            year: Number(formData.year),
+            genre: formData.genre,
+            watched: formData.watched,
+            // Rating deve ser null/undefined se vazio
+            rating: formData.rating ? Number(formData.rating) : undefined, 
+        };
+        
+        await addMovie(movieData);
+    };
 
-      setSuccess(true);
+    return (
+        <form onSubmit={handleSubmit} className="card p-6 mb-6">
+            <h3 className="text-xl font-semibold mb-4">Adicionar Novo Filme</h3>
+            
+            {addError && <p className="text-red-400 mb-4">{addError}</p>}
 
-      // ✅ Chama o callback de sucesso (para atualizar a lista)
-      if (onMovieAdded) {
-        onMovieAdded();
-      }
+            {/* Input Título */}
+            <input type="text" name="title" value={formData.title} onChange={handleChange} placeholder="Título do Filme" className="input mb-3" disabled={isLoading} required />
+            
+            {/* Input Gênero */}
+            <input type="text" name="genre" value={formData.genre} onChange={handleChange} placeholder="Gênero" className="input mb-3" disabled={isLoading} required />
 
-      // Opcional: resetar o formulário
-      setTitle('');
-      setYear('');
-      setGenre('');
-      setWatched(false);
-      setRating('');
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-8">
-      <h2 className="text-xl font-bold text-gray-800 mb-4">Adicionar Filme</h2>
-
-      {success && (
-        <div className="mb-4 p-3 bg-green-100 text-green-800 rounded-lg text-sm">
-          Filme adicionado com sucesso!
-        </div>
-      )}
-
-      {error && (
-        <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-lg text-sm">
-          {error}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Título *
-          </label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            required
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Ano *
-            </label>
-            <input
-              type="number"
-              min="1900"
-              max="2025"
-              value={year}
-              onChange={(e) => setYear(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              required
+            {/* Input Ano (Com Validação HTML5) */}
+            <input 
+                type="number" 
+                name="year"
+                value={formData.year} 
+                onChange={handleChange} 
+                placeholder="Ano (1900-2025)"
+                className="input mb-3"
+                disabled={isLoading}
+                required
+                min="1900" // Guia o usuário
+                max="2025" // Guia o usuário
             />
-          </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Gênero *
-            </label>
-            <input
-              type="text"
-              value={genre}
-              onChange={(e) => setGenre(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              required
+            {/* Input Rating (Com Duas Casas Decimais) */}
+            <input 
+                type="number" 
+                name="rating"
+                value={formData.rating} 
+                onChange={handleChange} 
+                placeholder="Avaliação (0.00 - 10.00)"
+                className="input mb-4"
+                disabled={isLoading}
+                min="0"
+                max="10"
+                step="0.01" // Permite duas casas decimais
             />
-          </div>
-        </div>
 
-        <div>
-          <label className="flex items-center space-x-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={watched}
-              onChange={(e) => setWatched(e.target.checked)}
-              className="h-4 w-4 text-blue-600 rounded"
-            />
-            <span className="text-gray-700">Assistido</span>
-          </label>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Nota (0–10)
-          </label>
-          <input
-            type="number"
-            min="0"
-            max="10"
-            step="1"
-            value={rating}
-            onChange={(e) => setRating(e.target.value)}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-          />
-        </div>
-
-        <div className="flex justify-between">
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-gray-600 hover:text-gray-800 font-medium py-2 px-4"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className={`py-2 px-6 rounded-lg font-medium text-white transition ${
-              loading
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700'
-            }`}
-          >
-            {loading ? 'Adicionando...' : 'Adicionar'}
-          </button>
-        </div>
-      </form>
-    </div>
-  );
+            {/* Checkbox Watched */}
+            <div className="flex items-center mb-4">
+                <input type="checkbox" name="watched" checked={formData.watched} onChange={handleChange} className="h-4 w-4 text-cyan-500 border-[color:var(--border)] rounded bg-white/5" disabled={isLoading} />
+                <label className="ml-2 text-sm">Já assisti</label>
+            </div>
+            
+            <button type="submit" disabled={isLoading} className="btn btn-primary w-full py-2">
+                {isLoading ? 'Adicionando...' : 'Adicionar Filme'}
+            </button>
+        </form>
+    );
 }

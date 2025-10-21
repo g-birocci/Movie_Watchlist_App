@@ -1,80 +1,220 @@
 // frontend/src/components/AllMovies.jsx
-import { useState, useEffect } from 'react';
-import { carregarFilmesAPI } from '../services/api';
 
-export default function AllMovies({ onRefresh }) {
-  const [filmes, setFilmes] = useState([]);
-  const [carregando, setCarregando] = useState(true);
-  const [erro, setErro] = useState(null);
+// ATENÇÃO: Adicionado 'useMemo' na importação do React
+import React, { useState, useMemo } from "react";
+import { useMovies } from "../hooks/useMovies";
+import { useDeleteMovie } from "../hooks/useDeleteMovie";
+import { useUpdateWatched } from "../hooks/useUpdateWatched";
+import EditMovie from './EditMovie';
 
-  const buscarFilmes = async () => {
-    setCarregando(true);
-    setErro(null);
-    try {
-      const dados = await carregarFilmesAPI();
-      setFilmes(Array.isArray(dados) ? dados : []);
-    } catch (err) {
-      setErro(err.message);
-      setFilmes([]);
-    } finally {
-      setCarregando(false);
-    }
+export default function AllMovies({ onRefresh }) { // Adicionei 'onRefresh' aqui para manter a compatibilidade com o index.jsx que você mostrou
+  const {
+    movies: filmes,
+    loading: carregando,
+    error: erro,
+    setMovies,
+    refetchMovies // Adicionei refetchMovies para uso potencial
+  } = useMovies();
+
+  const { isDeleting, deleteError, deleteMovie } = useDeleteMovie(setMovies);
+  const { isUpdating, updateError, toggleWatchedStatus } =
+    useUpdateWatched(setMovies);
+
+  // ESTADO DE EDIÇÃO
+  const [movieToEdit, setMovieToEdit] = useState(null);
+  
+  // ESTADO DE ORDENAÇÃO (básica)
+  const [sortBy, setSortBy] = useState('default');
+
+  const handleOpenEdit = (filme) => {
+    setMovieToEdit(filme);
   };
 
-  // Busca inicial ao montar
-  useEffect(() => {
-    buscarFilmes();
-  }, []);
+  const handleCloseEdit = () => {
+    setMovieToEdit(null);
+    // Se você usa o setMovies no EditMovie, isso já atualiza. Se não, use refetchMovies() aqui.
+  };
+  
+  // LÓGICA DE ORDENAÇÃO BÁSICA (sem rating)
+  const sortedFilmes = useMemo(() => {
+    let sortableFilmes = [...filmes]; 
 
-  // Passa a função de refresh para o componente pai (via prop onRefresh)
-  useEffect(() => {
-    if (onRefresh) {
-      onRefresh(buscarFilmes);
+    switch (sortBy) {
+      case 'title_asc': // Ordem Alfabética (A-Z)
+        sortableFilmes.sort((a, b) => a.title.localeCompare(b.title));
+        break;
+      case 'title_desc': // Ordem Alfabética (Z-A)
+        sortableFilmes.sort((a, b) => b.title.localeCompare(a.title));
+        break;
+      case 'year_desc': // Ano mais recente primeiro
+        sortableFilmes.sort((a, b) => b.year - a.year);
+        break;
+      case 'year_asc': // Ano mais antigo primeiro
+        sortableFilmes.sort((a, b) => a.year - b.year);
+        break;
+      case 'date_desc': // Mais recentemente adicionados primeiro
+        sortableFilmes.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        break;
+      case 'date_asc': // Mais antigamente adicionados primeiro
+        sortableFilmes.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        break;
+      case 'default':
+      default:
+        // Ordenação Padrão (mantém a ordem de inserção do MongoDB)
+        sortableFilmes.sort((a, b) => a._id.localeCompare(b._id));
+        break;
     }
-  }, [onRefresh, buscarFilmes]);
 
-  if (carregando) return <p className="text-center text-gray-600">Carregando seus filmes...</p>;
-  if (erro) return <p className="text-center text-red-500">Erro: {erro}</p>;
+    return sortableFilmes;
+  }, [filmes, sortBy]); 
+  
+  // --- Lógica de Carregamento e Erro (INALTERADA) ---
+  const isBusy = carregando || isDeleting || isUpdating;
+
+  // Sua lógica de refresh (se 'onRefresh' foi implementado no 'index.jsx')
+  // if (onRefresh && refetchMovies) { onRefresh(refetchMovies); } 
+
+  if (isBusy)
+    return (
+      <p className="text-center text-muted">
+        {isDeleting
+          ? "Deletando filme..."
+          : isUpdating
+          ? "Atualizando status..."
+          : "Carregando seus filmes..."}
+      </p>
+    );
+
+  if (erro || deleteError || updateError)
+    return (
+      <p className="text-center text-red-400">
+        Erro: {erro || deleteError || updateError}
+      </p>
+    );
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold text-gray-800">Minha Biblioteca</h2>
-      {filmes.length === 0 ? (
-        <p className="text-gray-500 text-center">Você ainda não adicionou nenhum filme.</p>
-      ) : (
-        <div className="grid gap-4">
-          {filmes.map((filme) => (
-            <div
-              key={filme._id}
-              className="bg-white p-5 rounded-xl shadow-sm border border-gray-200"
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Minha Biblioteca</h2>
+
+        {/* SELETOR DE ORDENAÇÃO BÁSICA */}
+        <div className="flex items-center">
+            <label htmlFor="sort" className="mr-2 text-sm text-muted font-medium">Ordenar por:</label>
+            <select 
+                id="sort"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)} 
+                className="select select-dark text-sm"
             >
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-bold text-lg text-gray-900">{filme.title}</h3>
-                  <p className="text-gray-600">{filme.genre} • {filme.year}</p>
-                </div>
-                <span
-                  className={`px-2 py-1 text-xs rounded-full ${
-                    filme.watched
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-yellow-100 text-yellow-800'
-                  }`}
-                >
-                  {filme.watched ? 'Assistido' : 'Pendente'}
-                </span>
-              </div>
+                <option value="default">Padrão</option>
+                <option value="title_asc">Título (A-Z)</option>
+                <option value="title_desc">Título (Z-A)</option>
+                <option value="year_desc">Ano (Mais Recente)</option>
+                <option value="year_asc">Ano (Mais Antigo)</option>
+                <option value="date_desc">Data (Mais Recente)</option>
+                <option value="date_asc">Data (Mais Antigo)</option>
+            </select>
+        </div>
+      </div>
 
-              {filme.rating !== undefined && filme.rating > 0 && (
-                <p className="mt-2 text-gray-700">⭐ Nota: {filme.rating}/10</p>
-              )}
-
-              <p className="text-xs text-gray-400 mt-3">
-                Adicionado em: {new Date(filme.createdAt).toLocaleDateString('pt-BR')}
-              </p>
-            </div>
-          ))}
+      {/* RENDERIZAÇÃO DO FORMULÁRIO DE EDIÇÃO (INALTERADA) */}
+      {movieToEdit && (
+        <div className="mb-8">
+          <EditMovie
+            movie={movieToEdit}
+            setMovies={setMovies}
+            handleCloseEdit={handleCloseEdit}
+          />
         </div>
       )}
+
+      {/* RENDERIZAÇÃO DA LISTA DE FILMES */}
+      {!movieToEdit &&
+        (sortedFilmes && sortedFilmes.length === 0 ? ( // ATENÇÃO: Usando sortedFilmes aqui
+          <p className="text-muted text-center">
+            Você ainda não adicionou nenhum filme.
+          </p>
+        ) : (
+          <div className="grid gap-4">
+            {sortedFilmes && // ATENÇÃO: Usando sortedFilmes aqui
+              sortedFilmes.map((filme) => ( // ATENÇÃO: Usando sortedFilmes aqui
+                <div
+                  key={filme._id}
+                  className="card p-5"
+                >
+                  {/* DETALHES DO FILME (INALTERADOS) */}
+                  <h3 className="text-xl font-semibold">
+                    {filme.title}
+                  </h3>
+
+                  <p className="text-sm text-[color:var(--muted)] mb-1">
+                    Ano de Lançamento: {filme.year}
+                  </p>
+
+                  {filme.createdAt && (
+                    <p className="text-xs text-[color:var(--muted)] mb-2 italic">
+                      Adicionado em:{" "}
+                      {new Date(filme.createdAt).toLocaleDateString()}
+                    </p>
+                  )}
+
+                  {filme.rating && (
+                    <p className="text-sm text-[color:var(--foreground)]">
+                      Avaliação:{" "}
+                      <span className="font-bold text-yellow-400">
+                        {filme.rating}/10
+                      </span>
+                    </p>
+                  )}
+
+                  {/* INDICADOR DE STATUS (INALTERADO) */}
+                  <span
+                    className={`inline-block mt-1 px-3 py-1 text-xs font-medium rounded-full ${
+                      filme.watched
+                        ? "bg-green-500/15 text-green-400"
+                        : "bg-yellow-400/15 text-yellow-300"
+                    }`}
+                  >
+                    {filme.watched ? "✅ Assistido" : "🕒 Pendente"}
+                  </span>
+
+                  {/* BOTÕES DE AÇÃO (INALTERADOS) */}
+                  <div className="mt-3 flex gap-2 justify-end">
+                    {/* Botão de Edição */}
+                    <button
+                      onClick={() => handleOpenEdit(filme)}
+                      disabled={isBusy}
+                      className="btn btn-secondary py-1 px-3 text-sm"
+                    >
+                      ✏️ Editar
+                    </button>
+
+                    {/* Botão de Alternância (Somente se não foi assistido) */}
+                    {!filme.watched && (
+                      <button
+                        onClick={() =>
+                          toggleWatchedStatus(filme._id, filme.watched)
+                        }
+                        disabled={isBusy}
+                        className="btn btn-success py-1 px-3 text-sm"
+                      >
+                        Marcar como Assistido
+                      </button>
+                    )}
+
+                    {/* Botão Deletar */}
+                    <button
+                      onClick={() => deleteMovie(filme._id)}
+                      disabled={isBusy}
+                      className="btn btn-danger py-1 px-3 text-sm"
+                    >
+                      {isDeleting ? "..." : "Deletar"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+          </div>
+        ))}
     </div>
   );
 }

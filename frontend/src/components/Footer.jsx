@@ -1,13 +1,8 @@
 // components/footer.jsx
 export default function Footer() {
   return (
-    <footer style={{ 
-      padding: "1rem", 
-      textAlign: "center", 
-      borderTop: "1px solid #eee",
-      marginTop: "2rem"
-    }}>
-      © {new Date().getFullYear()} Biblioteca de Livros
+    <footer className="mt-8 border-t border-[color:var(--border)] py-4 text-center text-sm text-muted">
+      © {new Date().getFullYear()} Movie Watchlist
     </footer>
   );
 }

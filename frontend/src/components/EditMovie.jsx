@@ -1,143 +1,152 @@
-// components/EditMovies.jsx (ou pages/movies/edit/[id].jsx se estiver no Pages Router)
-'use client'; // necessário se estiver no App Router
+// frontend/src/components/EditMovie.jsx
 
-import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation'; // ou 'next/router' no Pages Router
+import React, { useState } from 'react';
+import { useEditMovie } from '../hooks/useEditMovie';
 
-export default function EditMovies() {
-  const [movie, setMovie] = useState({
-    title: '',
-    description: '',
-    releaseYear: '',
-    genre: '',
-  });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const router = useRouter();
-  const params = useParams(); // App Router — use `router.query.id` se estiver no Pages Router
-  const movieId = params?.id;
+export default function EditMovie({ movie, setMovies, handleCloseEdit }) {
+    
+    // Inicializa o estado do formulário com os dados atuais do filme, INCLUINDO O GÊNERO
+    const [formData, setFormData] = useState({
+        _id: movie._id, 
+        title: movie.title || '',
+        year: movie.year || '',
+        genre: movie.genre || '', // 👈 CAMPO 'genre' ADICIONADO
+        rating: movie.rating || 0,
+        watched: movie.watched || false,
+    });
 
-  // Carregar dados do filme
-  useEffect(() => {
-    if (!movieId) return;
-    const fetchMovie = async () => {
-      try {
-        const res = await fetch(`/api/movies/${movieId}`);
-        if (!res.ok) throw new Error('Filme não encontrado');
-        const data = await res.json();
-        setMovie(data);
-      } catch (err) {
-        console.error(err);
-        alert('Erro ao carregar filme');
-        router.push('/movies'); // redireciona se falhar
-      } finally {
-        setLoading(false);
-      }
+    const { isSaving, saveError, editMovie } = useEditMovie(setMovies, handleCloseEdit);
+
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? checked : value,
+        }));
     };
-    fetchMovie();
-  }, [movieId, router]);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setMovie((prev) => ({ ...prev, [name]: value }));
-  };
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        // Converte os valores numéricos antes de enviar
+        const dataToSave = {
+            ...formData,
+            year: Number(formData.year),
+            rating: Number(formData.rating) 
+        };
+        editMovie(dataToSave);
+    };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/movies/${movieId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(movie),
-      });
+    return (
+        <div className="card p-6 border border-[color:var(--border)]">
+            <h3 className="text-xl font-bold mb-4 text-cyan-400">
+                Editando: {movie.title}
+            </h3>
 
-      if (!res.ok) throw new Error('Falha ao atualizar filme');
-      alert('Filme atualizado com sucesso!');
-      router.push('/movies'); // ou para a página de detalhes
-    } catch (err) {
-      console.error(err);
-      alert('Erro ao salvar alterações');
-    } finally {
-      setSaving(false);
-    }
-  };
+            <form onSubmit={handleSubmit} className="space-y-4">
+                
+                {/* Campo Título */}
+                <div>
+                    <label htmlFor="title" className="label">Título</label>
+                    <input
+                        type="text"
+                        name="title"
+                        id="title"
+                        value={formData.title}
+                        onChange={handleChange}
+                        required
+                        className="input mt-1"
+                        disabled={isSaving}
+                    />
+                </div>
+                
+                {/* NOVO CAMPO: Gênero */}
+                <div>
+                    <label htmlFor="genre" className="label">Gênero</label>
+                    <input
+                        type="text"
+                        name="genre"
+                        id="genre"
+                        value={formData.genre}
+                        onChange={handleChange}
+                        required
+                        className="input mt-1"
+                        disabled={isSaving}
+                    />
+                </div>
 
-  if (loading) return <div className="p-8 text-center">Carregando...</div>;
+                {/* Campo Ano */}
+                <div>
+                    <label htmlFor="year" className="label">Ano de Lançamento</label>
+                    <input
+                        type="number"
+                        name="year"
+                        id="year"
+                        value={formData.year}
+                        onChange={handleChange}
+                        required
+                        className="input mt-1"
+                        disabled={isSaving}
+                        min="1888" 
+                        max={new Date().getFullYear()}
+                    />
+                </div>
+                
+                {/* Campo Avaliação (Rating) */}
+                <div>
+                    <label htmlFor="rating" className="label">Avaliação (0 a 10)</label>
+                    <input
+                        type="number"
+                        name="rating"
+                        id="rating"
+                        value={formData.rating}
+                        onChange={handleChange}
+                        className="input mt-1"
+                        disabled={isSaving}
+                        min="0"
+                        max="10"
+                        step="0.1" // Permite notas decimais
+                    />
+                </div>
+                
+                {/* Campo Watched (Assistido) */}
+                <div className="flex items-center">
+                    <input
+                        type="checkbox"
+                        name="watched"
+                        id="watched"
+                        checked={formData.watched}
+                        onChange={handleChange}
+                        className="h-4 w-4 text-cyan-500 border-[color:var(--border)] rounded bg-white/5"
+                        disabled={isSaving}
+                    />
+                    <label htmlFor="watched" className="ml-2 text-sm">
+                        Já assisti a este filme
+                    </label>
+                </div>
+                
 
-  return (
-    <div className="max-w-2xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6 text-gray-800">Editar Filme</h1>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
-          <input
-            type="text"
-            name="title"
-            value={movie.title}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            required
-          />
+                {saveError && (
+                    <p className="text-red-400 text-sm mt-2">{saveError}</p>
+                )}
+
+                <div className="flex justify-end gap-3 pt-4">
+                    <button
+                        type="button"
+                        onClick={handleCloseEdit}
+                        disabled={isSaving}
+                        className="btn btn-secondary px-4 py-2 text-sm"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={isSaving}
+                        className="btn btn-primary px-4 py-2 text-sm"
+                    >
+                        {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+                    </button>
+                </div>
+            </form>
         </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Gênero</label>
-          <input
-            type="text"
-            name="genre"
-            value={movie.genre}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Ano de Lançamento</label>
-          <input
-            type="number"
-            name="releaseYear"
-            value={movie.releaseYear}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            min="1800"
-            max="2100"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
-          <textarea
-            name="description"
-            value={movie.description}
-            onChange={handleChange}
-            rows="4"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            required
-          />
-        </div>
-
-        <div className="flex gap-3 pt-4">
-          <button
-            type="submit"
-            disabled={saving}
-            className={`px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition ${
-              saving ? 'opacity-70 cursor-not-allowed' : ''
-            }`}
-          >
-            {saving ? 'Salvando...' : 'Salvar Alterações'}
-          </button>
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="px-6 py-2 border border-gray-400 text-gray-700 rounded-lg hover:bg-gray-100 transition"
-          >
-            Cancelar
-          </button>
-        </div>
-      </form>
-    </div>
-  );
+    );
 }
