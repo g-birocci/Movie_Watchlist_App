@@ -8,20 +8,18 @@ export const useMovies = (filterParams = {}) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // SOLUÇÃO 1: Estabilizar filterParams com useMemo
-  // Converte o objeto em uma string estável para comparação
-  const stableFilterParams = useMemo(
-    () => JSON.stringify(filterParams),
-    [JSON.stringify(filterParams)]
-  );
+  // ✅ SOLUÇÃO: Serializa filterParams para criar uma chave estável
+  const filterKey = useMemo(() => {
+    return JSON.stringify(filterParams);
+  }, [JSON.stringify(filterParams)]);
 
-  // A função de busca agora depende da string estável
+  // A função de busca agora depende da chave serializada
   const fetchMovies = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      // Reconverte a string de volta para objeto
-      const params = JSON.parse(stableFilterParams);
+      // Deserializa a chave de volta para objeto
+      const params = JSON.parse(filterKey);
       const data = await carregarFilmesAPI(params); 
       
       setMovies(Array.isArray(data) ? data : []); 
@@ -32,9 +30,9 @@ export const useMovies = (filterParams = {}) => {
     } finally {
       setLoading(false);
     }
-  }, [stableFilterParams]); // Agora depende de uma string estável
+  }, [filterKey]); // ✅ Agora depende apenas de filterKey
 
-  // Busca apenas quando fetchMovies mudar (não em todo render)
+  // Busca apenas quando fetchMovies mudar
   useEffect(() => {
     fetchMovies();
   }, [fetchMovies]); 
