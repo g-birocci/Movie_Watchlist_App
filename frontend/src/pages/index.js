@@ -1,5 +1,3 @@
-// frontend/src/pages/index.jsx
-
 import { useState, useRef } from 'react';
 import AddMovie from '../components/AddMovie';
 

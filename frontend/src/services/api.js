@@ -1,5 +1,3 @@
-// frontend/src/services/api.js
-
 // Define a URL base do backend usando a variável de ambiente (se disponível)
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
